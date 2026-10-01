@@ -78,6 +78,24 @@ _transactions.where((t)=> !t.isIncome).fold(0, (sum,t)=> sum+t.amount);
 
 double get balance => totalIncome - totalExpense;
 
+  // Online breakdown
+  double get onlineIncome =>
+      _transactions.where((t) => t.isIncome && t.isOnline).fold(0, (sum, t) => sum + t.amount);
+
+  double get onlineExpense =>
+      _transactions.where((t) => !t.isIncome && t.isOnline).fold(0, (sum, t) => sum + t.amount);
+
+  double get onlineBalance => onlineIncome - onlineExpense;
+
+  // Offline breakdown
+  double get offlineIncome =>
+      _transactions.where((t) => t.isIncome && !t.isOnline).fold(0, (sum, t) => sum + t.amount);
+
+  double get offlineExpense =>
+      _transactions.where((t) => !t.isIncome && !t.isOnline).fold(0, (sum, t) => sum + t.amount);
+
+  double get offlineBalance => offlineIncome - offlineExpense;
+
 List<TransactionModel> get recentTransactions => _transactions.take(10).toList();
 
   double _monthlyBudget = 0;

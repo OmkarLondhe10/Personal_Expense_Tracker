@@ -18,6 +18,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
   late List<String> categories;
   bool isIncome = false;
+  bool isOnline = true;
   String category = 'Food';
   DateTime selectedDate = DateTime.now();
 
@@ -32,11 +33,12 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     if (tx != null) {
       _amountController.text = tx.amount.toString();
       isIncome = tx.isIncome;
+      isOnline = tx.isOnline;
       category = tx.category;
       selectedDate = tx.date;
 
       if (!categories.contains(category)) {
-        categories.add(category);
+        categories.insert(0, category);
       }
     }
   }
@@ -77,9 +79,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         centerTitle: true,
         elevation: 0,
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             TextField(
               controller: _amountController,
@@ -141,41 +144,117 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
             const SizedBox(height: 20),
 
-            DropdownButtonFormField<String>(
-              value: category,
-              decoration: InputDecoration(
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              items: categories.map((cat) {
-                return DropdownMenuItem<String>(value: cat, child: Text(cat));
-              }).toList(),
-              onChanged: (value) async {
-                if (value == 'Other') {
-                  final customCategory = await _showCategoryDialog();
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    value: category,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    items: categories.map((cat) {
+                      return DropdownMenuItem<String>(value: cat, child: Text(cat));
+                    }).toList(),
+                    onChanged: (value) async {
+                      if (value == 'Other') {
+                        final defaultCategories = ['Food', 'Transport', 'Bills', 'Shopping', 'Other'];
+                        final previousCategory = category;
+                        final initial = defaultCategories.contains(previousCategory)
+                            ? ''
+                            : previousCategory;
 
-                  if (customCategory != null && customCategory.isNotEmpty) {
-                    setState(() {
-                      if (!categories.contains(customCategory)) {
-                        categories.insert(0, customCategory);
+                        final customCategory =
+                            await _showCategoryDialog(initialCategory: initial);
+
+                        if (customCategory != null && customCategory.isNotEmpty) {
+                          setState(() {
+                            if (!categories.contains(customCategory)) {
+                              categories.insert(0, customCategory);
+                            }
+                            category = customCategory;
+                          });
+                        } else {
+                          setState(() {
+                            category = previousCategory;
+                          });
+                        }
+                      } else {
+                        setState(() {
+                          category = value!;
+                        });
                       }
-                      category = customCategory;
-                    });
-                  } else {
-                    setState(() {
-                      category = value!;
-                    });
-                  }
-                } else {
-                  setState(() {
-                    category = value!;
-                  });
-                }
-              },
+                    },
+                  ),
+                ),
+                if (!['Food', 'Transport', 'Bills', 'Shopping', 'Other']
+                    .contains(category)) ...[
+                  const SizedBox(width: 8),
+                  IconButton(
+                    tooltip: 'Edit Category Name',
+                    icon: const Icon(Icons.edit_outlined),
+                    onPressed: () async {
+                      final updated =
+                          await _showCategoryDialog(initialCategory: category);
+                      if (updated != null && updated.isNotEmpty) {
+                        setState(() {
+                          final index = categories.indexOf(category);
+                          if (index != -1) {
+                            categories[index] = updated;
+                          } else {
+                            categories.insert(0, updated);
+                          }
+                          category = updated;
+                        });
+                      }
+                    },
+                  ),
+                ],
+              ],
             ),
 
-            const Spacer(),
+            const SizedBox(height: 20),
+
+            // PAYMENT MODE SELECTOR (Online vs Offline)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Payment Mode',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: SegmentedButton<bool>(
+                    segments: const [
+                      ButtonSegment<bool>(
+                        value: true,
+                        label: Text('Online'),
+                        icon: Icon(Icons.credit_card_outlined),
+                      ),
+                      ButtonSegment<bool>(
+                        value: false,
+                        label: Text('Offline / Cash'),
+                        icon: Icon(Icons.payments_outlined),
+                      ),
+                    ],
+                    selected: {isOnline},
+                    onSelectionChanged: (newSelection) {
+                      setState(() {
+                        isOnline = newSelection.first;
+                      });
+                    },
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 32),
 
             SizedBox(
               width: double.infinity,
@@ -198,6 +277,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                       category: category,
                       date: selectedDate,
                       isIncome: isIncome,
+                      isOnline: isOnline,
                     );
 
                     context.read<TransactionProvider>().addTransaction(tx);
@@ -208,6 +288,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                       category: category,
                       isIncome: isIncome,
                       date: selectedDate,
+                      isOnline: isOnline,
                     );
 
                     context.read<TransactionProvider>().updateTransaction(
@@ -229,8 +310,13 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     );
   }
 
-  Future<String?> _showCategoryDialog() async {
-    final controller = TextEditingController();
+  Future<String?> _showCategoryDialog({String? initialCategory}) async {
+    final controller = TextEditingController(text: initialCategory ?? '');
+    if (controller.text.isNotEmpty) {
+      controller.selection = TextSelection.fromPosition(
+        TextPosition(offset: controller.text.length),
+      );
+    }
 
     return showDialog<String>(
       context: context,
@@ -239,11 +325,27 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          title: const Text('Add Category'),
+          title: Text(initialCategory != null && initialCategory.isNotEmpty
+              ? 'Edit Category'
+              : 'Add Category'),
           content: TextField(
             controller: controller,
-            decoration: const InputDecoration(
+            cursorColor: Colors.black,
+            autofocus: true,
+            decoration: InputDecoration(
               hintText: 'E.g: Salary, Freelance',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: Colors.black54),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: Colors.black54),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: Colors.black, width: 1.5),
+              ),
             ),
           ),
           actions: [
@@ -252,8 +354,16 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               child: const Text('Cancel'),
             ),
             ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
               onPressed: () {
-                Navigator.pop(context, controller.text);
+                final trimmed = controller.text.trim();
+                Navigator.pop(context, trimmed.isEmpty ? null : trimmed);
               },
               child: const Text('Save'),
             ),

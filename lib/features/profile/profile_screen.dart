@@ -50,7 +50,7 @@ class ProfileScreen extends StatelessWidget {
             title: const Text("Dark Mode"),
             secondary: const Icon(Icons.dark_mode),
             onChanged: (value) {
-              settings.tottgleDarkMode(value);
+              settings.toggleDarkMode(value);
             },
           ),
 
