@@ -7,12 +7,13 @@ enum TransactionDateFilter {
   twoWeeks,
   threeWeeks,
   oneMonth,
+  thisMonth,
   custom;
 
   String get label {
     switch (this) {
       case TransactionDateFilter.all:
-        return 'All';
+        return 'All Time';
       case TransactionDateFilter.oneWeek:
         return 'Past 1 Week';
       case TransactionDateFilter.twoWeeks:
@@ -20,7 +21,9 @@ enum TransactionDateFilter {
       case TransactionDateFilter.threeWeeks:
         return 'Past 3 Weeks';
       case TransactionDateFilter.oneMonth:
-        return 'Past 1 Month';
+        return 'Last 30 Days';
+      case TransactionDateFilter.thisMonth:
+        return 'This Month';
       case TransactionDateFilter.custom:
         return 'Custom Date';
     }
@@ -37,7 +40,9 @@ enum TransactionDateFilter {
       case TransactionDateFilter.threeWeeks:
         return '3 Weeks';
       case TransactionDateFilter.oneMonth:
-        return '1 Month';
+        return '30 Days';
+      case TransactionDateFilter.thisMonth:
+        return 'This Month';
       case TransactionDateFilter.custom:
         return 'Calendar';
     }
@@ -69,6 +74,11 @@ enum TransactionDateFilter {
       case TransactionDateFilter.oneMonth:
         return DateTimeRange(
           start: startOfToday.subtract(const Duration(days: 30)),
+          end: endOfToday,
+        );
+      case TransactionDateFilter.thisMonth:
+        return DateTimeRange(
+          start: DateTime(now.year, now.month, 1, 0, 0, 0),
           end: endOfToday,
         );
       case TransactionDateFilter.custom:
