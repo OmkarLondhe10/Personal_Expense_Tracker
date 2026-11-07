@@ -79,11 +79,22 @@ class _BudgetScreenState extends State<BudgetScreen> {
         break;
     }
 
-    final isOverBudget = displayedBudget > 0 && displayedSpent > displayedBudget;
-    final remainingBudget = (displayedBudget - displayedSpent).clamp(0.0, double.infinity);
-    final overBudgetAmount = (displayedSpent - displayedBudget).clamp(0.0, double.infinity);
-    final progress = displayedBudget == 0 ? 0.0 : (displayedSpent / displayedBudget).clamp(0.0, 1.0);
-    final percentage = displayedBudget == 0 ? 0 : ((displayedSpent / displayedBudget) * 100).toInt();
+    final isOverBudget =
+        displayedBudget > 0 && displayedSpent > displayedBudget;
+    final remainingBudget = (displayedBudget - displayedSpent).clamp(
+      0.0,
+      double.infinity,
+    );
+    final overBudgetAmount = (displayedSpent - displayedBudget).clamp(
+      0.0,
+      double.infinity,
+    );
+    final progress = displayedBudget == 0
+        ? 0.0
+        : (displayedSpent / displayedBudget).clamp(0.0, 1.0);
+    final percentage = displayedBudget == 0
+        ? 0
+        : ((displayedSpent / displayedBudget) * 100).toInt();
 
     // Category spending and recent transactions filtered by mode
     final categorySpending = provider.getMonthlyCategorySpending(
@@ -91,11 +102,18 @@ class _BudgetScreenState extends State<BudgetScreen> {
       isOnline: _selectedModeIndex == 0 ? null : (_selectedModeIndex == 1),
     );
 
-    final allMonthlyTransactions = provider.getMonthlyTransactions(_selectedMonth);
+    final allMonthlyTransactions = provider.getMonthlyTransactions(
+      _selectedMonth,
+    );
     final modeTransactions = _selectedModeIndex == 0
         ? allMonthlyTransactions
-        : allMonthlyTransactions.where((t) => _selectedModeIndex == 1 ? t.isOnline : !t.isOnline).toList();
-    final recentExpenses = modeTransactions.where((t) => !t.isIncome).take(5).toList();
+        : allMonthlyTransactions
+              .where((t) => _selectedModeIndex == 1 ? t.isOnline : !t.isOnline)
+              .toList();
+    final recentExpenses = modeTransactions
+        .where((t) => !t.isIncome)
+        .take(5)
+        .toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -151,7 +169,9 @@ class _BudgetScreenState extends State<BudgetScreen> {
               ),
 
             // SEPARATE ONLINE & OFFLINE SUMMARY CARDS (When on 'All' mode with separate budgets enabled)
-            if (_selectedModeIndex == 0 && useSeparate && (onlineBudget > 0 || offlineBudget > 0)) ...[
+            if (_selectedModeIndex == 0 &&
+                useSeparate &&
+                (onlineBudget > 0 || offlineBudget > 0)) ...[
               const SizedBox(height: 14),
               _buildSeparateBudgetsBreakdown(
                 context,
@@ -216,7 +236,10 @@ class _BudgetScreenState extends State<BudgetScreen> {
   }
 
   // Payment Mode Segmented Button (All, Online, Offline)
-  Widget _buildModeSelectorSegment(BuildContext context, {required bool useSeparate}) {
+  Widget _buildModeSelectorSegment(
+    BuildContext context, {
+    required bool useSeparate,
+  }) {
     return SizedBox(
       width: double.infinity,
       child: SegmentedButton<int>(
@@ -293,9 +316,14 @@ class _BudgetScreenState extends State<BudgetScreen> {
                   const SizedBox(width: 8),
                   if (_isCurrentMonth)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.primary.withValues(alpha: 0.15),
+                        color: theme.colorScheme.primary.withValues(
+                          alpha: 0.15,
+                        ),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
@@ -309,7 +337,10 @@ class _BudgetScreenState extends State<BudgetScreen> {
                     )
                   else
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.orange.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(6),
@@ -407,7 +438,9 @@ class _BudgetScreenState extends State<BudgetScreen> {
                   Icon(
                     _selectedModeIndex == 1
                         ? Icons.credit_card_outlined
-                        : (_selectedModeIndex == 2 ? Icons.payments_outlined : Icons.shield_outlined),
+                        : (_selectedModeIndex == 2
+                              ? Icons.payments_outlined
+                              : Icons.shield_outlined),
                     color: Colors.white70,
                     size: 18,
                   ),
@@ -423,7 +456,10 @@ class _BudgetScreenState extends State<BudgetScreen> {
                 ],
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.black.withValues(alpha: 0.25),
                   borderRadius: BorderRadius.circular(12),
@@ -465,7 +501,9 @@ class _BudgetScreenState extends State<BudgetScreen> {
               ),
               const SizedBox(width: 8),
               Text(
-                budget > 0 ? '/ ₹${budget.toStringAsFixed(0)}' : '(Total Spent)',
+                budget > 0
+                    ? '/ ₹${budget.toStringAsFixed(0)}'
+                    : '(Total Spent)',
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w500,
@@ -487,7 +525,9 @@ class _BudgetScreenState extends State<BudgetScreen> {
                 valueColor: AlwaysStoppedAnimation<Color>(
                   isOverBudget
                       ? Colors.redAccent
-                      : (progress >= 0.8 ? Colors.amber : Colors.lightGreenAccent),
+                      : (progress >= 0.8
+                            ? Colors.amber
+                            : Colors.lightGreenAccent),
                 ),
               ),
             ),
@@ -503,7 +543,9 @@ class _BudgetScreenState extends State<BudgetScreen> {
               Expanded(
                 child: _buildMetricCol(
                   label: 'Target Budget',
-                  value: budget > 0 ? '₹${budget.toStringAsFixed(0)}' : 'Not Set',
+                  value: budget > 0
+                      ? '₹${budget.toStringAsFixed(0)}'
+                      : 'Not Set',
                   valueColor: Colors.white,
                   icon: Icons.track_changes,
                 ),
@@ -515,10 +557,14 @@ class _BudgetScreenState extends State<BudgetScreen> {
                   value: budget == 0
                       ? '₹${spent.toStringAsFixed(0)} Spent'
                       : (isOverBudget
-                          ? '-₹${overspent.toStringAsFixed(0)}'
-                          : '₹${remaining.toStringAsFixed(0)}'),
-                  valueColor: isOverBudget ? Colors.redAccent.shade100 : Colors.white,
-                  icon: isOverBudget ? Icons.arrow_upward : Icons.arrow_downward,
+                            ? '-₹${overspent.toStringAsFixed(0)}'
+                            : '₹${remaining.toStringAsFixed(0)}'),
+                  valueColor: isOverBudget
+                      ? Colors.redAccent.shade100
+                      : Colors.white,
+                  icon: isOverBudget
+                      ? Icons.arrow_upward
+                      : Icons.arrow_downward,
                 ),
               ),
             ],
@@ -533,13 +579,19 @@ class _BudgetScreenState extends State<BudgetScreen> {
               style: TextButton.styleFrom(
                 foregroundColor: Colors.white,
                 backgroundColor: Colors.white.withValues(alpha: 0.15),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
               icon: const Icon(Icons.tune, size: 14),
-              label: const Text('Adjust Budget', style: TextStyle(fontSize: 12)),
+              label: const Text(
+                'Adjust Budget',
+                style: TextStyle(fontSize: 12),
+              ),
               onPressed: () => _showBudgetBottomSheet(
                 context,
                 currentTotal: provider.monthlyBudget,
@@ -598,20 +650,28 @@ class _BudgetScreenState extends State<BudgetScreen> {
   }) {
     final theme = Theme.of(context);
 
-    final onlineRemaining = (onlineBudget - onlineSpent).clamp(0.0, double.infinity);
-    final offlineRemaining = (offlineBudget - offlineSpent).clamp(0.0, double.infinity);
+    final onlineRemaining = (onlineBudget - onlineSpent).clamp(
+      0.0,
+      double.infinity,
+    );
+    final offlineRemaining = (offlineBudget - offlineSpent).clamp(
+      0.0,
+      double.infinity,
+    );
 
-    final onlineProgress = onlineBudget == 0 ? 0.0 : (onlineSpent / onlineBudget).clamp(0.0, 1.0);
-    final offlineProgress = offlineBudget == 0 ? 0.0 : (offlineSpent / offlineBudget).clamp(0.0, 1.0);
+    final onlineProgress = onlineBudget == 0
+        ? 0.0
+        : (onlineSpent / onlineBudget).clamp(0.0, 1.0);
+    final offlineProgress = offlineBudget == 0
+        ? 0.0
+        : (offlineSpent / offlineBudget).clamp(0.0, 1.0);
 
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: theme.cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: theme.dividerColor.withValues(alpha: 0.2),
-        ),
+        border: Border.all(color: theme.dividerColor.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -649,18 +709,29 @@ class _BudgetScreenState extends State<BudgetScreen> {
                     children: [
                       Row(
                         children: const [
-                          Icon(Icons.credit_card_outlined, size: 14, color: Colors.blue),
+                          Icon(
+                            Icons.credit_card_outlined,
+                            size: 14,
+                            color: Colors.blue,
+                          ),
                           SizedBox(width: 4),
                           Text(
                             'Online',
-                            style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 12),
+                            style: TextStyle(
+                              color: Colors.blue,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 6),
                       Text(
                         '₹${onlineSpent.toStringAsFixed(0)} / ₹${onlineBudget.toStringAsFixed(0)}',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       ClipRRect(
@@ -670,7 +741,9 @@ class _BudgetScreenState extends State<BudgetScreen> {
                           minHeight: 4,
                           backgroundColor: Colors.blue.withValues(alpha: 0.2),
                           valueColor: AlwaysStoppedAnimation<Color>(
-                            onlineSpent > onlineBudget ? Colors.redAccent : Colors.blue,
+                            onlineSpent > onlineBudget
+                                ? Colors.redAccent
+                                : Colors.blue,
                           ),
                         ),
                       ),
@@ -681,7 +754,9 @@ class _BudgetScreenState extends State<BudgetScreen> {
                             : 'Left: ₹${onlineRemaining.toStringAsFixed(0)}',
                         style: TextStyle(
                           fontSize: 10,
-                          color: onlineSpent > onlineBudget ? Colors.red : Colors.grey.shade700,
+                          color: onlineSpent > onlineBudget
+                              ? Colors.red
+                              : Colors.grey.shade700,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -703,18 +778,29 @@ class _BudgetScreenState extends State<BudgetScreen> {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.payments_outlined, size: 14, color: Colors.orange.shade800),
+                          Icon(
+                            Icons.payments_outlined,
+                            size: 14,
+                            color: Colors.orange.shade800,
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             'Offline',
-                            style: TextStyle(color: Colors.orange.shade800, fontWeight: FontWeight.bold, fontSize: 12),
+                            style: TextStyle(
+                              color: Colors.orange.shade800,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 6),
                       Text(
                         '₹${offlineSpent.toStringAsFixed(0)} / ₹${offlineBudget.toStringAsFixed(0)}',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       ClipRRect(
@@ -724,7 +810,9 @@ class _BudgetScreenState extends State<BudgetScreen> {
                           minHeight: 4,
                           backgroundColor: Colors.orange.withValues(alpha: 0.2),
                           valueColor: AlwaysStoppedAnimation<Color>(
-                            offlineSpent > offlineBudget ? Colors.redAccent : Colors.orange.shade800,
+                            offlineSpent > offlineBudget
+                                ? Colors.redAccent
+                                : Colors.orange.shade800,
                           ),
                         ),
                       ),
@@ -735,7 +823,9 @@ class _BudgetScreenState extends State<BudgetScreen> {
                             : 'Left: ₹${offlineRemaining.toStringAsFixed(0)}',
                         style: TextStyle(
                           fontSize: 10,
-                          color: offlineSpent > offlineBudget ? Colors.red : Colors.grey.shade700,
+                          color: offlineSpent > offlineBudget
+                              ? Colors.red
+                              : Colors.grey.shade700,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -758,7 +848,9 @@ class _BudgetScreenState extends State<BudgetScreen> {
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
+        color: theme.colorScheme.surfaceContainerHighest.withValues(
+          alpha: 0.45,
+        ),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: theme.colorScheme.primary.withValues(alpha: 0.3),
@@ -781,10 +873,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
           const SizedBox(height: 14),
           const Text(
             'No Monthly Budget Set',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 6),
           Text(
@@ -798,6 +887,8 @@ class _BudgetScreenState extends State<BudgetScreen> {
           const SizedBox(height: 16),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue, // Button background color
+              foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -840,7 +931,9 @@ class _BudgetScreenState extends State<BudgetScreen> {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Monthly budget set to ₹${amount.toStringAsFixed(0)}'),
+              content: Text(
+                'Monthly budget set to ₹${amount.toStringAsFixed(0)}',
+              ),
               behavior: SnackBarBehavior.floating,
             ),
           );
@@ -881,7 +974,11 @@ class _BudgetScreenState extends State<BudgetScreen> {
                 color: Colors.red.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.error_outline, color: Colors.red, size: 22),
+              child: const Icon(
+                Icons.error_outline,
+                color: Colors.red,
+                size: 22,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -997,7 +1094,9 @@ class _BudgetScreenState extends State<BudgetScreen> {
       return Container(
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+          color: theme.colorScheme.surfaceContainerHighest.withValues(
+            alpha: 0.3,
+          ),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: theme.colorScheme.outlineVariant.withValues(alpha: 0.2),
@@ -1037,9 +1136,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
       decoration: BoxDecoration(
         color: theme.cardColor,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: theme.dividerColor.withValues(alpha: 0.2),
-        ),
+        border: Border.all(color: theme.dividerColor.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1051,8 +1148,8 @@ class _BudgetScreenState extends State<BudgetScreen> {
                 _selectedModeIndex == 1
                     ? 'Online Spending by Category'
                     : (_selectedModeIndex == 2
-                        ? 'Offline Spending by Category'
-                        : 'Spending by Category'),
+                          ? 'Offline Spending by Category'
+                          : 'Spending by Category'),
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 15,
@@ -1155,7 +1252,9 @@ class _BudgetScreenState extends State<BudgetScreen> {
       return const SizedBox.shrink();
     }
 
-    final titleSuffix = modeIndex == 1 ? 'Online' : (modeIndex == 2 ? 'Offline' : 'All');
+    final titleSuffix = modeIndex == 1
+        ? 'Online'
+        : (modeIndex == 2 ? 'Offline' : 'All');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1165,10 +1264,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
           children: [
             Text(
               'Recent Expenses ($monthName · $titleSuffix)',
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -1322,13 +1418,19 @@ class _BudgetSettingsSheetState extends State<_BudgetSettingsSheet> {
     super.initState();
     _useSeparate = widget.initialUseSeparate;
     _totalController = TextEditingController(
-      text: widget.initialTotal == 0 ? '' : widget.initialTotal.toStringAsFixed(0),
+      text: widget.initialTotal == 0
+          ? ''
+          : widget.initialTotal.toStringAsFixed(0),
     );
     _onlineController = TextEditingController(
-      text: widget.initialOnline == 0 ? '' : widget.initialOnline.toStringAsFixed(0),
+      text: widget.initialOnline == 0
+          ? ''
+          : widget.initialOnline.toStringAsFixed(0),
     );
     _offlineController = TextEditingController(
-      text: widget.initialOffline == 0 ? '' : widget.initialOffline.toStringAsFixed(0),
+      text: widget.initialOffline == 0
+          ? ''
+          : widget.initialOffline.toStringAsFixed(0),
     );
 
     _onlineController.addListener(_updateCombinedTotal);
@@ -1393,7 +1495,9 @@ class _BudgetSettingsSheetState extends State<_BudgetSettingsSheet> {
                     fontSize: 18,
                   ),
                 ),
-                if (widget.initialTotal > 0 || widget.initialOnline > 0 || widget.initialOffline > 0)
+                if (widget.initialTotal > 0 ||
+                    widget.initialOnline > 0 ||
+                    widget.initialOffline > 0)
                   TextButton(
                     style: TextButton.styleFrom(foregroundColor: Colors.red),
                     child: const Text('Clear'),
@@ -1425,10 +1529,14 @@ class _BudgetSettingsSheetState extends State<_BudgetSettingsSheet> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                color: theme.colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.5,
+                ),
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+                  color: theme.colorScheme.outlineVariant.withValues(
+                    alpha: 0.3,
+                  ),
                 ),
               ),
               child: Row(
@@ -1447,7 +1555,10 @@ class _BudgetSettingsSheetState extends State<_BudgetSettingsSheet> {
                         children: const [
                           Text(
                             'Separate Online & Offline',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
                           ),
                           Text(
                             'Set dedicated limits for each mode',
@@ -1486,12 +1597,20 @@ class _BudgetSettingsSheetState extends State<_BudgetSettingsSheet> {
                 controller: _totalController,
                 autofocus: true,
                 keyboardType: TextInputType.number,
-                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
                 decoration: InputDecoration(
                   prefixText: '₹ ',
-                  prefixStyle: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  prefixStyle: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
                   hintText: '0',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                   suffixIcon: IconButton(
                     icon: const Icon(Icons.clear),
                     onPressed: () => _totalController.clear(),
@@ -1511,11 +1630,19 @@ class _BudgetSettingsSheetState extends State<_BudgetSettingsSheet> {
               // SEPARATE ONLINE & OFFLINE INPUTS
               Row(
                 children: const [
-                  Icon(Icons.credit_card_outlined, size: 16, color: Colors.blue),
+                  Icon(
+                    Icons.credit_card_outlined,
+                    size: 16,
+                    color: Colors.blue,
+                  ),
                   SizedBox(width: 6),
                   Text(
                     'Online Budget (UPI / Card / NetBanking)',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.blue),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: Colors.blue,
+                    ),
                   ),
                 ],
               ),
@@ -1524,11 +1651,16 @@ class _BudgetSettingsSheetState extends State<_BudgetSettingsSheet> {
                 controller: _onlineController,
                 autofocus: true,
                 keyboardType: TextInputType.number,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
                 decoration: InputDecoration(
                   prefixText: '₹ ',
                   hintText: '0',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   suffixIcon: IconButton(
                     icon: const Icon(Icons.clear),
                     onPressed: () => _onlineController.clear(),
@@ -1548,11 +1680,19 @@ class _BudgetSettingsSheetState extends State<_BudgetSettingsSheet> {
 
               Row(
                 children: [
-                  Icon(Icons.payments_outlined, size: 16, color: Colors.orange.shade800),
+                  Icon(
+                    Icons.payments_outlined,
+                    size: 16,
+                    color: Colors.orange.shade800,
+                  ),
                   const SizedBox(width: 6),
                   Text(
                     'Offline Budget (Cash)',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.orange.shade800),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: Colors.orange.shade800,
+                    ),
                   ),
                 ],
               ),
@@ -1560,11 +1700,16 @@ class _BudgetSettingsSheetState extends State<_BudgetSettingsSheet> {
               TextField(
                 controller: _offlineController,
                 keyboardType: TextInputType.number,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
                 decoration: InputDecoration(
                   prefixText: '₹ ',
                   hintText: '0',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   suffixIcon: IconButton(
                     icon: const Icon(Icons.clear),
                     onPressed: () => _offlineController.clear(),
@@ -1584,9 +1729,14 @@ class _BudgetSettingsSheetState extends State<_BudgetSettingsSheet> {
 
               // COMBINED TOTAL INFO BAR
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.primaryContainer.withValues(alpha: 0.35),
+                  color: theme.colorScheme.primaryContainer.withValues(
+                    alpha: 0.35,
+                  ),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
@@ -1594,7 +1744,10 @@ class _BudgetSettingsSheetState extends State<_BudgetSettingsSheet> {
                   children: [
                     const Text(
                       'Combined Total Budget:',
-                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
                     ),
                     Text(
                       '₹${_totalController.text.isEmpty ? "0" : _totalController.text}',
@@ -1623,8 +1776,10 @@ class _BudgetSettingsSheetState extends State<_BudgetSettingsSheet> {
                 ),
                 onPressed: () async {
                   if (_useSeparate) {
-                    final onlineVal = double.tryParse(_onlineController.text) ?? 0.0;
-                    final offlineVal = double.tryParse(_offlineController.text) ?? 0.0;
+                    final onlineVal =
+                        double.tryParse(_onlineController.text) ?? 0.0;
+                    final offlineVal =
+                        double.tryParse(_offlineController.text) ?? 0.0;
                     final totalVal = onlineVal + offlineVal;
 
                     await context.read<TransactionProvider>().setBudgets(
@@ -1634,7 +1789,8 @@ class _BudgetSettingsSheetState extends State<_BudgetSettingsSheet> {
                       useSeparate: true,
                     );
                   } else {
-                    final totalVal = double.tryParse(_totalController.text) ?? 0.0;
+                    final totalVal =
+                        double.tryParse(_totalController.text) ?? 0.0;
                     await context.read<TransactionProvider>().setBudgets(
                       totalBudget: totalVal,
                       onlineBudget: 0.0,
