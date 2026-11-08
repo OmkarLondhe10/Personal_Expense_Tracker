@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:personal_expense_tracker/features/dashboard/monthly_transactions_screen.dart';
 import 'package:personal_expense_tracker/features/transaction/screen/add_transaction.dart';
 import 'package:personal_expense_tracker/features/transaction/widget/transaction_tile.dart';
 import 'package:personal_expense_tracker/models/transaction_filter_model.dart';
 import 'package:personal_expense_tracker/models/transaction_model.dart';
 import 'package:personal_expense_tracker/provider/transaction_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -18,15 +20,78 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // 0: All (Combined), 1: Online, 2: Offline
   int _selectedModeIndex = 0;
 
-  // Defaults to Last 30 Days (auto-refreshes as time advances)
-  TransactionDateFilter _selectedFilter = TransactionDateFilter.oneMonth;
+  // Defaults to This Month (start of month to end of month)
+  TransactionDateFilter _selectedFilter = TransactionDateFilter.thisMonth;
+  DateTime _selectedMonth = DateTime(DateTime.now().year, DateTime.now().month);
   DateTimeRange? _customRange;
+
+  // Tracks calendar month rollover to auto-reset filter upon new month arrival
+  DateTime _currentMonthTracker = DateTime(DateTime.now().year, DateTime.now().month);
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAndResetForNewMonth();
+    _checkStoredMonthRoll();
+  }
+
+  void _checkAndResetForNewMonth() {
+    final now = DateTime.now();
+    final current = DateTime(now.year, now.month);
+    if (_currentMonthTracker.year != current.year ||
+        _currentMonthTracker.month != current.month) {
+      _currentMonthTracker = current;
+      _selectedMonth = current;
+      _selectedFilter = TransactionDateFilter.thisMonth;
+      _customRange = null;
+    }
+  }
+
+  Future<void> _checkStoredMonthRoll() async {
+    final prefs = await SharedPreferences.getInstance();
+    final now = DateTime.now();
+    final currentKey = '${now.year}-${now.month}';
+    final storedKey = prefs.getString('last_active_calendar_month');
+    if (storedKey != null && storedKey != currentKey) {
+      if (mounted) {
+        setState(() {
+          _currentMonthTracker = DateTime(now.year, now.month);
+          _resetToCurrentMonth();
+        });
+      }
+    }
+    await prefs.setString('last_active_calendar_month', currentKey);
+  }
+
+  bool get _isCurrentMonth {
+    final now = DateTime.now();
+    return _selectedMonth.year == now.year && _selectedMonth.month == now.month;
+  }
+
+  bool get _isDefaultMonthly =>
+      _selectedFilter == TransactionDateFilter.thisMonth &&
+      _isCurrentMonth &&
+      _customRange == null;
+
+  bool get isDefaultMonthly => _isDefaultMonthly;
+
+  void _resetToCurrentMonth() {
+    final now = DateTime.now();
+    setState(() {
+      _selectedFilter = TransactionDateFilter.thisMonth;
+      _customRange = null;
+      _selectedMonth = DateTime(now.year, now.month);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    _checkAndResetForNewMonth();
     final provider = context.watch<TransactionProvider>();
 
-    final filterRange = _selectedFilter.getDateRange(customRange: _customRange);
+    final filterRange = _selectedFilter == TransactionDateFilter.thisMonth
+        ? TransactionDateFilter.getMonthRange(_selectedMonth)
+        : _selectedFilter.getDateRange(customRange: _customRange);
 
     // Apply date filter (Default: Last 30 days)
     final dateFilteredTransactions = filterRange == null
@@ -105,11 +170,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     modeFiltered.sort((a, b) => b.date.compareTo(a.date));
     final recent = modeFiltered.take(10).toList();
 
-    final isDefault30Days =
-        _selectedFilter == TransactionDateFilter.oneMonth &&
-        _customRange == null;
-
     return Scaffold(
+      drawer: _buildDrawer(context, provider),
       appBar: AppBar(
         title: const Text("Dashboard"),
         centerTitle: true,
@@ -121,7 +183,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               clipBehavior: Clip.none,
               children: [
                 const Icon(Icons.calendar_month_outlined),
-                if (!isDefault30Days)
+                if (!isDefaultMonthly)
                   Positioned(
                     top: -2,
                     right: -2,
@@ -153,15 +215,50 @@ class _DashboardScreenState extends State<DashboardScreen> {
           padding: const EdgeInsets.all(16),
           child: ListView(
             children: [
-              // DATE FILTER BANNER (Shows active timeframe & auto-refresh status)
-              _buildDateFilterBanner(context, filterRange),
-
-              const SizedBox(height: 10),
-
-              // QUICK TIMEFRAME PRESET CHIPS
-              _buildQuickFilterChips(context),
-
-              const SizedBox(height: 16),
+              // If viewing an archived month or custom timeframe from drawer, show a clean dismissible notification
+              if (!isDefaultMonthly) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.history,
+                        size: 18,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          "Viewing Archive: ${_selectedFilter == TransactionDateFilter.thisMonth ? DateFormat('MMMM yyyy').format(_selectedMonth) : _selectedFilter.chipLabel}",
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                        ),
+                      ),
+                      TextButton.icon(
+                        icon: const Icon(Icons.close, size: 14),
+                        label: const Text("Current Month", style: TextStyle(fontSize: 11)),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        onPressed: _resetToCurrentMonth,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
 
               // MODE SELECTOR SEGMENT (All, Online, Offline)
               SizedBox(
@@ -227,8 +324,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
-                            isDefault30Days
-                                ? "Last 30 Days"
+                            _selectedFilter == TransactionDateFilter.thisMonth
+                                ? DateFormat('MMMM yyyy').format(_selectedMonth)
                                 : _selectedFilter.chipLabel,
                             style: const TextStyle(
                               fontSize: 11,
@@ -381,9 +478,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    isDefault30Days
-                        ? 'Recent Transactions (30 Days)'
-                        : 'Recent Transactions (${_selectedFilter.chipLabel})',
+                    _selectedFilter == TransactionDateFilter.thisMonth
+                        ? 'Transactions (${DateFormat('MMMM yyyy').format(_selectedMonth)})'
+                        : 'Transactions (${_selectedFilter.chipLabel})',
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -440,257 +537,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // Active Date Filter Banner showing current timeframe and auto-refresh status
-  Widget _buildDateFilterBanner(
-    BuildContext context,
-    DateTimeRange? filterRange,
-  ) {
-    final theme = Theme.of(context);
-    final isDefault30Days =
-        _selectedFilter == TransactionDateFilter.oneMonth &&
-        _customRange == null;
-    final rangeText = _selectedFilter.getDisplaySubtitle(
-      customRange: _customRange,
-    );
-
-    return Container(
-      decoration: BoxDecoration(
-        color: isDefault30Days
-            ? theme.colorScheme.primary.withValues(alpha: 0.08)
-            : theme.colorScheme.tertiaryContainer.withValues(alpha: 0.35),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDefault30Days
-              ? theme.colorScheme.primary.withValues(alpha: 0.25)
-              : theme.colorScheme.tertiary.withValues(alpha: 0.4),
-          width: 1.2,
-        ),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: () => _showCalendarOptions(context),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: isDefault30Days
-                        ? theme.colorScheme.primary.withValues(alpha: 0.15)
-                        : theme.colorScheme.tertiary.withValues(alpha: 0.2),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.calendar_month_rounded,
-                    size: 20,
-                    color: isDefault30Days
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.tertiary,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              isDefault30Days
-                                  ? "Last 30 Days"
-                                  : (_selectedFilter ==
-                                          TransactionDateFilter.custom
-                                      ? "Custom Range"
-                                      : _selectedFilter.label),
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                                color: isDefault30Days
-                                    ? theme.colorScheme.primary
-                                    : theme.colorScheme.onSurface,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isDefault30Days
-                                  ? theme.colorScheme.primary.withValues(
-                                      alpha: 0.15,
-                                    )
-                                  : Colors.orange.withValues(alpha: 0.18),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              isDefault30Days ? "Auto-refreshing" : "Filtered",
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                                color: isDefault30Days
-                                    ? theme.colorScheme.primary
-                                    : Colors.orange.shade900,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        rangeText,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (!isDefault30Days) ...[
-                  IconButton(
-                    tooltip: "Reset to 30 Days",
-                    icon: Icon(
-                      Icons.replay,
-                      size: 20,
-                      color: theme.colorScheme.primary,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _selectedFilter = TransactionDateFilter.oneMonth;
-                        _customRange = null;
-                      });
-                    },
-                  ),
-                ] else ...[
-                  Icon(
-                    Icons.arrow_drop_down,
-                    color: theme.colorScheme.primary,
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // Quick timeframe chips for instant 1-tap switching
-  Widget _buildQuickFilterChips(BuildContext context) {
-    final theme = Theme.of(context);
-    final primaryColor = theme.colorScheme.primary;
-
-    final quickFilters = [
-      TransactionDateFilter.oneMonth,
-      TransactionDateFilter.oneWeek,
-      TransactionDateFilter.twoWeeks,
-      TransactionDateFilter.thisMonth,
-      TransactionDateFilter.all,
-      TransactionDateFilter.custom,
-    ];
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: quickFilters.map((filter) {
-          final isSelected = _selectedFilter == filter;
-
-          String label;
-          IconData iconData;
-
-          switch (filter) {
-            case TransactionDateFilter.oneMonth:
-              label = '30 Days (Default)';
-              iconData = Icons.timelapse;
-              break;
-            case TransactionDateFilter.oneWeek:
-              label = '1 Wk';
-              iconData = Icons.history;
-              break;
-            case TransactionDateFilter.twoWeeks:
-              label = '2 Wks';
-              iconData = Icons.history_toggle_off;
-              break;
-            case TransactionDateFilter.thisMonth:
-              label = 'This Month';
-              iconData = Icons.calendar_view_month;
-              break;
-            case TransactionDateFilter.all:
-              label = 'All Time';
-              iconData = Icons.all_inclusive;
-              break;
-            case TransactionDateFilter.custom:
-              if (isSelected && _customRange != null) {
-                label = _formatCustomShortLabel(_customRange!);
-              } else {
-                label = 'Calendar';
-              }
-              iconData = Icons.calendar_today_outlined;
-              break;
-            default:
-              label = filter.chipLabel;
-              iconData = Icons.date_range;
-              break;
-          }
-
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: FilterChip(
-              selected: isSelected,
-              showCheckmark: false,
-              avatar: Icon(
-                iconData,
-                size: 15,
-                color: isSelected
-                    ? theme.colorScheme.onPrimary
-                    : theme.colorScheme.onSurfaceVariant,
-              ),
-              label: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                  color: isSelected
-                      ? theme.colorScheme.onPrimary
-                      : theme.colorScheme.onSurface,
-                ),
-              ),
-              backgroundColor: theme.colorScheme.surfaceContainerHighest,
-              selectedColor: primaryColor,
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-                side: BorderSide(
-                  color: isSelected
-                      ? primaryColor
-                      : theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
-                ),
-              ),
-              onSelected: (selected) {
-                if (filter == TransactionDateFilter.custom) {
-                  _showCalendarOptions(context);
-                } else {
-                  setState(() {
-                    _selectedFilter = filter;
-                    _customRange = null;
-                  });
-                }
-              },
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
   // Income / Expense Stat Card
   Widget _buildCard(
     BuildContext context, {
@@ -739,10 +585,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required double offlineIncome,
     required double offlineBalance,
   }) {
-    final isDefault30Days =
-        _selectedFilter == TransactionDateFilter.oneMonth &&
-        _customRange == null;
-
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -766,7 +608,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
               Text(
-                isDefault30Days ? "30-Day Period" : _selectedFilter.chipLabel,
+                _selectedFilter == TransactionDateFilter.thisMonth
+                    ? "${DateFormat('MMMM').format(_selectedMonth)} Breakdown"
+                    : _selectedFilter.chipLabel,
                 style: TextStyle(
                   fontSize: 11,
                   color: Theme.of(context).colorScheme.primary,
@@ -959,7 +803,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // Calendar bottom sheet offering Date Range, Single Day, and Presets
+  // Calendar bottom sheet offering Month Picker, Date Range, Single Day, and Presets
   void _showCalendarOptions(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -969,9 +813,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
       builder: (ctx) {
         final theme = Theme.of(ctx);
-        final isDefault30Days =
-            _selectedFilter == TransactionDateFilter.oneMonth &&
-            _customRange == null;
 
         return SafeArea(
           child: Padding(
@@ -995,28 +836,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Dashboard Calendar Filter',
+                      'Dashboard Timeframe Filter',
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                         fontSize: 18,
                       ),
                     ),
-                    if (!isDefault30Days)
+                    if (!isDefaultMonthly)
                       TextButton.icon(
                         icon: const Icon(Icons.restart_alt, size: 16),
-                        label: const Text('Reset to 30 Days'),
+                        label: const Text('Reset to This Month'),
                         onPressed: () {
                           Navigator.pop(ctx);
-                          setState(() {
-                            _selectedFilter = TransactionDateFilter.oneMonth;
-                            _customRange = null;
-                          });
+                          _resetToCurrentMonth();
                         },
                       ),
                   ],
                 ),
                 Text(
-                  'Home screen automatically refreshes every 30 days. Select custom calendar dates or presets to view data for any timeframe.',
+                  'Dashboard totals and transactions are shown monthly (start of month to end of month) by default. You can select any month or custom timeframe.',
                   style: TextStyle(
                     color: theme.colorScheme.onSurfaceVariant,
                     fontSize: 13,
@@ -1024,7 +862,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // OPTION 1: Pick Date Range
+                // OPTION 1: Select Month & Year
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: Container(
@@ -1034,8 +872,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
-                      Icons.date_range,
+                      Icons.calendar_month,
                       color: theme.colorScheme.primary,
+                    ),
+                  ),
+                  title: const Text(
+                    'Select Month & Year',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: const Text(
+                    'View all totals and transactions for an entire month (start to end)',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _pickMonth(context);
+                  },
+                ),
+
+                const Divider(height: 16),
+
+                // OPTION 2: Pick Date Range
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.indigo.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.date_range,
+                      color: Colors.indigo,
                     ),
                   ),
                   title: const Text(
@@ -1055,7 +924,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                 const Divider(height: 16),
 
-                // OPTION 2: Pick Single Day
+                // OPTION 3: Pick Single Day
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: Container(
@@ -1100,12 +969,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   runSpacing: 8,
                   children: [
                     _buildQuickActionChip(
-                      label: "Last 30 Days (Default)",
-                      isSelected: isDefault30Days,
+                      label: "This Month (Default)",
+                      isSelected: isDefaultMonthly,
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _resetToCurrentMonth();
+                      },
+                    ),
+                    _buildQuickActionChip(
+                      label: "Last Month",
+                      isSelected:
+                          _selectedFilter == TransactionDateFilter.lastMonth,
                       onTap: () {
                         Navigator.pop(ctx);
                         setState(() {
-                          _selectedFilter = TransactionDateFilter.oneMonth;
+                          _selectedFilter = TransactionDateFilter.lastMonth;
                           _customRange = null;
                         });
                       },
@@ -1146,18 +1024,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         Navigator.pop(ctx);
                         setState(() {
                           _selectedFilter = TransactionDateFilter.twoWeeks;
-                          _customRange = null;
-                        });
-                      },
-                    ),
-                    _buildQuickActionChip(
-                      label: "This Month",
-                      isSelected:
-                          _selectedFilter == TransactionDateFilter.thisMonth,
-                      onTap: () {
-                        Navigator.pop(ctx);
-                        setState(() {
-                          _selectedFilter = TransactionDateFilter.thisMonth;
                           _customRange = null;
                         });
                       },
@@ -1204,12 +1070,142 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  // Opens Month & Year Selector Dialog
+  Future<void> _pickMonth(BuildContext context) async {
+    final now = DateTime.now();
+    int tempYear = _selectedMonth.year;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (dialogCtx, setDialogState) {
+            final theme = Theme.of(dialogCtx);
+            return AlertDialog(
+              title: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.chevron_left),
+                    tooltip: 'Previous Year',
+                    onPressed: () {
+                      setDialogState(() {
+                        tempYear--;
+                      });
+                    },
+                  ),
+                  Text(
+                    '$tempYear',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.chevron_right),
+                    tooltip: 'Next Year',
+                    onPressed: () {
+                      setDialogState(() {
+                        tempYear++;
+                      });
+                    },
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    childAspectRatio: 1.8,
+                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 8,
+                  ),
+                  itemCount: 12,
+                  itemBuilder: (context, index) {
+                    final monthIndex = index + 1;
+                    final isSelected =
+                        _selectedFilter == TransactionDateFilter.thisMonth &&
+                        _selectedMonth.year == tempYear &&
+                        _selectedMonth.month == monthIndex;
+                    final isCurrent =
+                        now.year == tempYear && now.month == monthIndex;
+                    final monthDate = DateTime(tempYear, monthIndex);
+                    final monthName = DateFormat('MMM').format(monthDate);
+
+                    return InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        setState(() {
+                          _selectedMonth = DateTime(tempYear, monthIndex);
+                          _selectedFilter = TransactionDateFilter.thisMonth;
+                          _customRange = null;
+                        });
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? theme.colorScheme.primary
+                              : (isCurrent
+                                  ? theme.colorScheme.primaryContainer.withValues(
+                                      alpha: 0.4,
+                                    )
+                                  : theme.colorScheme.surfaceContainerHighest
+                                      .withValues(alpha: 0.5)),
+                          borderRadius: BorderRadius.circular(8),
+                          border: isCurrent && !isSelected
+                              ? Border.all(
+                                  color: theme.colorScheme.primary,
+                                  width: 1.5,
+                                )
+                              : null,
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          monthName,
+                          style: TextStyle(
+                            fontWeight: isSelected || isCurrent
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                            color: isSelected
+                                ? theme.colorScheme.onPrimary
+                                : null,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _resetToCurrentMonth();
+                  },
+                  child: const Text('Current Month'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Cancel'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   // Opens Flutter's Date Range Picker for arbitrary date range
   Future<void> _pickDateRange() async {
     final now = DateTime.now();
     final initialRange =
         _customRange ??
-        DateTimeRange(start: now.subtract(const Duration(days: 30)), end: now);
+        TransactionDateFilter.getMonthRange(_selectedMonth);
 
     final picked = await showDateRangePicker(
       context: context,
@@ -1257,15 +1253,338 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  String _formatCustomShortLabel(DateTimeRange range) {
-    final isSameDay =
-        range.start.year == range.end.year &&
-        range.start.month == range.end.month &&
-        range.start.day == range.end.day;
+  List<DateTime> _getCompletedMonths(List<TransactionModel> transactions) {
+    final now = DateTime.now();
+    final currentMonthStart = DateTime(now.year, now.month);
 
-    if (isSameDay) {
-      return DateFormat('dd MMM').format(range.start);
+    final Set<int> monthKeys = {};
+    final List<DateTime> months = [];
+
+    // 1. Gather all past months from transactions that are strictly before the current month
+    for (final tx in transactions) {
+      final m = DateTime(tx.date.year, tx.date.month);
+      if (m.isBefore(currentMonthStart)) {
+        final key = m.year * 100 + m.month;
+        if (monthKeys.add(key)) {
+          months.add(m);
+        }
+      }
     }
-    return '${DateFormat('dd MMM').format(range.start)} - ${DateFormat('dd MMM').format(range.end)}';
+
+    // 2. Include past 12 completed calendar months based on current time
+    for (int i = 1; i <= 12; i++) {
+      final m = DateTime(now.year, now.month - i);
+      final key = m.year * 100 + m.month;
+      if (monthKeys.add(key)) {
+        months.add(m);
+      }
+    }
+
+    // Sort descending: most recent completed month first
+    months.sort((a, b) => b.compareTo(a));
+    return months;
+  }
+
+  void _confirmDeleteMonth(
+    BuildContext context,
+    TransactionProvider provider,
+    DateTime month,
+    int count,
+  ) {
+    final monthName = DateFormat('MMMM yyyy').format(month);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Delete $monthName Transactions?'),
+        content: Text(
+          'Are you sure you want to delete all $count transaction(s) recorded in $monthName?\n\nThis action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              provider.deleteTransactionsForMonth(month);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('All transactions for $monthName have been deleted.'),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+            child: const Text('Delete All'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDrawer(BuildContext context, TransactionProvider provider) {
+    final theme = Theme.of(context);
+    final now = DateTime.now();
+    final currentMonth = DateTime(now.year, now.month);
+    final completedMonths = _getCompletedMonths(provider.transactions);
+
+    return Drawer(
+      child: Column(
+        children: [
+          DrawerHeader(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  theme.colorScheme.primary,
+                  theme.colorScheme.primaryContainer,
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            child: SizedBox(
+              width: double.infinity,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.account_balance_wallet,
+                      size: 28,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    "Personal Expense",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    "Monthly History & Completed Archives",
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.8),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                // CURRENT MONTH TILE
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: isDefaultMonthly
+                          ? theme.colorScheme.primary.withValues(alpha: 0.15)
+                          : Colors.grey.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.today,
+                      color: isDefaultMonthly
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.onSurfaceVariant,
+                      size: 20,
+                    ),
+                  ),
+                  title: Text(
+                    DateFormat('MMMM yyyy').format(currentMonth),
+                    style: TextStyle(
+                      fontWeight: isDefaultMonthly ? FontWeight.bold : FontWeight.w600,
+                    ),
+                  ),
+                  subtitle: Text(
+                    isDefaultMonthly
+                        ? 'Current Month (Active)'
+                        : 'Tap to switch back to Current Month',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDefaultMonthly ? theme.colorScheme.primary : null,
+                    ),
+                  ),
+                  trailing: isDefaultMonthly
+                      ? Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primary,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Text(
+                            'Active',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        )
+                      : null,
+                  selected: isDefaultMonthly,
+                  onTap: () {
+                    Navigator.pop(context);
+                    _resetToCurrentMonth();
+                  },
+                ),
+
+                const Divider(height: 1),
+
+                // SECTION HEADER FOR COMPLETED MONTHS
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "COMPLETED MONTHS",
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.1,
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                      Text(
+                        "${completedMonths.length} months",
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                if (completedMonths.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Center(
+                      child: Column(
+                        children: [
+                          Icon(Icons.hourglass_empty, color: Colors.grey.shade400, size: 36),
+                          const SizedBox(height: 8),
+                          const Text(
+                            "No completed months yet",
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            "When the current month ends, it will automatically appear here.",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  ...completedMonths.map((m) {
+                    final mTransactions = provider.transactions
+                        .where((t) => t.date.year == m.year && t.date.month == m.month)
+                        .toList();
+                    final count = mTransactions.length;
+                    final expense = mTransactions
+                        .where((t) => !t.isIncome)
+                        .fold(0.0, (sum, t) => sum + t.amount);
+                    final monthName = DateFormat('MMMM yyyy').format(m);
+
+                    final isViewingThisInDashboard =
+                        _selectedFilter == TransactionDateFilter.thisMonth &&
+                        _selectedMonth.year == m.year &&
+                        _selectedMonth.month == m.month;
+
+                    return ListTile(
+                      leading: CircleAvatar(
+                        radius: 18,
+                        backgroundColor: isViewingThisInDashboard
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme.surfaceContainerHighest,
+                        child: Icon(
+                          Icons.calendar_month,
+                          size: 18,
+                          color: isViewingThisInDashboard
+                              ? theme.colorScheme.onPrimary
+                              : theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      title: Text(
+                        monthName,
+                        style: TextStyle(
+                          fontWeight:
+                              isViewingThisInDashboard ? FontWeight.bold : FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: Text(
+                        count == 0
+                            ? '0 transactions'
+                            : '$count transaction${count > 1 ? 's' : ''} • Spent: ₹${expense.toStringAsFixed(0)}',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (count > 0)
+                            IconButton(
+                              icon: const Icon(
+                                Icons.delete_outline,
+                                color: Colors.red,
+                                size: 20,
+                              ),
+                              tooltip: 'Delete $monthName',
+                              onPressed: () => _confirmDeleteMonth(
+                                context,
+                                provider,
+                                m,
+                                count,
+                              ),
+                            ),
+                          const Icon(Icons.chevron_right, size: 18),
+                        ],
+                      ),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => MonthlyTransactionsScreen(
+                              month: m,
+                              onSelectForDashboard: () {
+                                setState(() {
+                                  _selectedMonth = m;
+                                  _selectedFilter = TransactionDateFilter.thisMonth;
+                                  _customRange = null;
+                                });
+                              },
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  }),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

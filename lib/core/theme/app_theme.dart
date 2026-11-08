@@ -24,8 +24,8 @@ abstract final class AppTheme {
       useM2StyleDividerInM3: true,
       filledButtonRadius: 8.0,
       elevatedButtonRadius: 8.0,
-      elevatedButtonSchemeColor: SchemeColor.white,
-      elevatedButtonSecondarySchemeColor: SchemeColor.secondaryContainer,
+      elevatedButtonSchemeColor: SchemeColor.primary,
+      elevatedButtonSecondarySchemeColor: SchemeColor.onPrimary,
       outlinedButtonRadius: 8.0,
       segmentedButtonSchemeColor: SchemeColor.primary,
       inputDecoratorSchemeColor: SchemeColor.white,
@@ -43,6 +43,11 @@ abstract final class AppTheme {
 
     visualDensity: FlexColorScheme.comfortablePlatformDensity,
     cupertinoOverrideTheme: const CupertinoThemeData(applyThemeToAll: true),
+  ).copyWith(
+    textSelectionTheme: const TextSelectionThemeData(
+      cursorColor: Colors.black,
+      selectionHandleColor: Colors.black,
+    ),
   );
 
 
@@ -67,8 +72,8 @@ abstract final class AppTheme {
       useM2StyleDividerInM3: true,
       filledButtonRadius: 8.0,
       elevatedButtonRadius: 8.0,
-      elevatedButtonSchemeColor: SchemeColor.white,
-      elevatedButtonSecondarySchemeColor: SchemeColor.secondaryContainer,
+      elevatedButtonSchemeColor: SchemeColor.primary,
+      elevatedButtonSecondarySchemeColor: SchemeColor.onPrimary,
       outlinedButtonRadius: 8.0,
       segmentedButtonSchemeColor: SchemeColor.primary,
       inputDecoratorIsFilled: true,
@@ -85,5 +90,10 @@ abstract final class AppTheme {
 
     visualDensity: FlexColorScheme.comfortablePlatformDensity,
     cupertinoOverrideTheme: const CupertinoThemeData(applyThemeToAll: true),
+  ).copyWith(
+    textSelectionTheme: const TextSelectionThemeData(
+      cursorColor: Colors.white,
+      selectionHandleColor: Colors.white,
+    ),
   );
 }

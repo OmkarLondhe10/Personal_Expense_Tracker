@@ -18,21 +18,28 @@ class _BudgetScreenState extends State<BudgetScreen> {
   // 0: All, 1: Online, 2: Offline
   int _selectedModeIndex = 0;
 
+  DateTime _currentMonthTracker =
+      DateTime(DateTime.now().year, DateTime.now().month);
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAndResetForNewMonth();
+  }
+
+  void _checkAndResetForNewMonth() {
+    final now = DateTime.now();
+    final current = DateTime(now.year, now.month);
+    if (_currentMonthTracker.year != current.year ||
+        _currentMonthTracker.month != current.month) {
+      _currentMonthTracker = current;
+      _selectedMonth = current;
+    }
+  }
+
   bool get _isCurrentMonth {
     final now = DateTime.now();
     return _selectedMonth.year == now.year && _selectedMonth.month == now.month;
-  }
-
-  void _previousMonth() {
-    setState(() {
-      _selectedMonth = DateTime(_selectedMonth.year, _selectedMonth.month - 1);
-    });
-  }
-
-  void _nextMonth() {
-    setState(() {
-      _selectedMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1);
-    });
   }
 
   void _resetToCurrentMonth() {
@@ -44,6 +51,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
 
   @override
   Widget build(BuildContext context) {
+    _checkAndResetForNewMonth();
     final provider = context.watch<TransactionProvider>();
 
     final totalBudget = provider.monthlyBudget;
@@ -116,6 +124,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
         .toList();
 
     return Scaffold(
+      drawer: _buildDrawer(context, provider),
       appBar: AppBar(
         title: const Text('Monthly Budget'),
         centerTitle: true,
@@ -141,10 +150,50 @@ class _BudgetScreenState extends State<BudgetScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // MONTH SELECTOR BAR
-            _buildMonthSelectorBar(context),
-
-            const SizedBox(height: 12),
+            // If viewing a past month from the drawer, show a clean indicator
+            if (!_isCurrentMonth) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.history,
+                      size: 18,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        "Viewing Past Budget: ${DateFormat('MMMM yyyy').format(_selectedMonth)}",
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
+                    ),
+                    TextButton.icon(
+                      icon: const Icon(Icons.close, size: 14),
+                      label: const Text("Current Month", style: TextStyle(fontSize: 11)),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      onPressed: _resetToCurrentMonth,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
 
             // PAYMENT MODE SELECTOR (All, Online, Offline)
             _buildModeSelectorSegment(context, useSeparate: useSeparate),
@@ -266,104 +315,6 @@ class _BudgetScreenState extends State<BudgetScreen> {
             _selectedModeIndex = set.first;
           });
         },
-      ),
-    );
-  }
-
-  // Month Selector Navigation Bar
-  Widget _buildMonthSelectorBar(BuildContext context) {
-    final theme = Theme.of(context);
-    final monthLabel = DateFormat.yMMMM().format(_selectedMonth);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.chevron_left),
-            tooltip: 'Previous Month',
-            onPressed: _previousMonth,
-          ),
-          InkWell(
-            borderRadius: BorderRadius.circular(10),
-            onTap: _isCurrentMonth ? null : _resetToCurrentMonth,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.calendar_month,
-                    size: 18,
-                    color: theme.colorScheme.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    monthLabel,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  if (_isCurrentMonth)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.primary.withValues(
-                          alpha: 0.15,
-                        ),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        'Current',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: theme.colorScheme.primary,
-                        ),
-                      ),
-                    )
-                  else
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        'Past',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.orange.shade900,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.chevron_right),
-            tooltip: 'Next Month',
-            onPressed: _nextMonth,
-          ),
-        ],
       ),
     );
   }
@@ -843,7 +794,6 @@ class _BudgetScreenState extends State<BudgetScreen> {
   // Empty Budget Callout
   Widget _buildEmptyBudgetCard(BuildContext context) {
     final theme = Theme.of(context);
-    final provider = context.read<TransactionProvider>();
 
     return Container(
       padding: const EdgeInsets.all(22),
@@ -1387,6 +1337,318 @@ class _BudgetScreenState extends State<BudgetScreen> {
         return Colors.indigo;
     }
   }
+
+  List<DateTime> _getCompletedMonths(List<dynamic> transactions) {
+    final now = DateTime.now();
+    final currentMonthStart = DateTime(now.year, now.month);
+
+    final Set<int> monthKeys = {};
+    final List<DateTime> months = [];
+
+    // 1. Gather all past months from transactions that are strictly before current month
+    for (final tx in transactions) {
+      final m = DateTime(tx.date.year, tx.date.month);
+      if (m.isBefore(currentMonthStart)) {
+        final key = m.year * 100 + m.month;
+        if (monthKeys.add(key)) {
+          months.add(m);
+        }
+      }
+    }
+
+    // 2. Include past 12 completed calendar months based on current time
+    for (int i = 1; i <= 12; i++) {
+      final m = DateTime(now.year, now.month - i);
+      final key = m.year * 100 + m.month;
+      if (monthKeys.add(key)) {
+        months.add(m);
+      }
+    }
+
+    // Sort descending: most recent completed month first
+    months.sort((a, b) => b.compareTo(a));
+    return months;
+  }
+
+  Widget _buildDrawer(BuildContext context, TransactionProvider provider) {
+    final theme = Theme.of(context);
+    final now = DateTime.now();
+    final currentMonth = DateTime(now.year, now.month);
+    final completedMonths = _getCompletedMonths(provider.transactions);
+    final totalBudget = provider.monthlyBudget;
+
+    return Drawer(
+      child: Column(
+        children: [
+          DrawerHeader(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  theme.colorScheme.primary,
+                  theme.colorScheme.primaryContainer,
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            child: SizedBox(
+              width: double.infinity,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.pie_chart,
+                      size: 28,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    "Budget History",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    "Past monthly budgets & spending",
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.8),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                // CURRENT MONTH TILE
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: _isCurrentMonth
+                          ? theme.colorScheme.primary.withValues(alpha: 0.15)
+                          : Colors.grey.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.today,
+                      color: _isCurrentMonth
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.onSurfaceVariant,
+                      size: 20,
+                    ),
+                  ),
+                  title: Text(
+                    DateFormat('MMMM yyyy').format(currentMonth),
+                    style: TextStyle(
+                      fontWeight:
+                          _isCurrentMonth ? FontWeight.bold : FontWeight.w600,
+                    ),
+                  ),
+                  subtitle: Text(
+                    _isCurrentMonth
+                        ? 'Current Month (Active)'
+                        : 'Tap to switch back to Current Month',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: _isCurrentMonth ? theme.colorScheme.primary : null,
+                    ),
+                  ),
+                  trailing: _isCurrentMonth
+                      ? Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primary,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Text(
+                            'Active',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        )
+                      : null,
+                  selected: _isCurrentMonth,
+                  onTap: () {
+                    Navigator.pop(context);
+                    _resetToCurrentMonth();
+                  },
+                ),
+
+                const Divider(height: 1),
+
+                // SECTION HEADER FOR PAST MONTHS
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "PAST MONTHS",
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.1,
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                      Text(
+                        "${completedMonths.length} months",
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                if (completedMonths.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Center(
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.hourglass_empty,
+                            color: Colors.grey.shade400,
+                            size: 36,
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            "No past months yet",
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            "Completed months will appear here once the month ends.",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  ...completedMonths.map((m) {
+                    final monthName = DateFormat('MMMM yyyy').format(m);
+                    final spent = provider.getMonthlyExpense(m);
+                    final isViewing = !_isCurrentMonth &&
+                        _selectedMonth.year == m.year &&
+                        _selectedMonth.month == m.month;
+
+                    final isOverBudget =
+                        totalBudget > 0 && spent > totalBudget;
+                    final Color statusColor = totalBudget == 0
+                        ? theme.colorScheme.primary
+                        : (isOverBudget ? Colors.red : Colors.green);
+
+                    final String subtitleText;
+                    if (totalBudget > 0) {
+                      if (isOverBudget) {
+                        subtitleText =
+                            'Spent: ₹${spent.toStringAsFixed(0)} • Over by ₹${(spent - totalBudget).toStringAsFixed(0)}';
+                      } else {
+                        final left = totalBudget - spent;
+                        subtitleText =
+                            'Spent: ₹${spent.toStringAsFixed(0)} • Left: ₹${left.toStringAsFixed(0)}';
+                      }
+                    } else {
+                      subtitleText =
+                          'Spent: ₹${spent.toStringAsFixed(0)} • Budget: ₹0';
+                    }
+
+                    return ListTile(
+                      leading: CircleAvatar(
+                        radius: 18,
+                        backgroundColor: isViewing
+                            ? statusColor
+                            : statusColor.withValues(alpha: 0.12),
+                        child: Icon(
+                          Icons.pie_chart_outline,
+                          size: 18,
+                          color: isViewing ? Colors.white : statusColor,
+                        ),
+                      ),
+                      title: Text(
+                        monthName,
+                        style: TextStyle(
+                          fontWeight:
+                              isViewing ? FontWeight.bold : FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: Text(
+                        subtitleText,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isOverBudget ? Colors.red.shade700 : null,
+                        ),
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (isViewing)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.primary,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Text(
+                                'Viewing',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          const SizedBox(width: 4),
+                          const Icon(Icons.chevron_right, size: 18),
+                        ],
+                      ),
+                      selected: isViewing,
+                      onTap: () {
+                        Navigator.pop(context);
+                        setState(() {
+                          _selectedMonth = m;
+                        });
+                      },
+                    );
+                  }),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // Stateful BottomSheet for Budget Configuration (Total or Separate Online/Offline)
@@ -1769,6 +2031,8 @@ class _BudgetSettingsSheetState extends State<_BudgetSettingsSheet> {
               width: double.infinity,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),

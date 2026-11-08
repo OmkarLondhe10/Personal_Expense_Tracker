@@ -49,6 +49,13 @@ class TransactionProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void deleteTransactionsForMonth(DateTime month) {
+    _transactions.removeWhere((t) =>
+        t.date.year == month.year && t.date.month == month.month);
+    _save();
+    notifyListeners();
+  }
+
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
     final data = prefs.getStringList(_storagekey);

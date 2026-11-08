@@ -266,11 +266,11 @@ class _TransactionScreenState extends State<TransactionScreen> {
 
     final filters = [
       TransactionDateFilter.all,
+      TransactionDateFilter.thisMonth,
+      TransactionDateFilter.lastMonth,
       TransactionDateFilter.oneWeek,
       TransactionDateFilter.twoWeeks,
       TransactionDateFilter.threeWeeks,
-      TransactionDateFilter.oneMonth,
-      TransactionDateFilter.thisMonth,
       TransactionDateFilter.custom,
     ];
 
@@ -291,9 +291,17 @@ class _TransactionScreenState extends State<TransactionScreen> {
                 label = 'All';
                 iconData = Icons.all_inclusive;
                 break;
+              case TransactionDateFilter.thisMonth:
+                label = 'This Month';
+                iconData = Icons.calendar_view_month;
+                break;
+              case TransactionDateFilter.lastMonth:
+                label = 'Last Month';
+                iconData = Icons.history;
+                break;
               case TransactionDateFilter.oneWeek:
                 label = 'Past 1 Wk';
-                iconData = Icons.history;
+                iconData = Icons.timelapse;
                 break;
               case TransactionDateFilter.twoWeeks:
                 label = 'Past 2 Wks';
@@ -302,14 +310,6 @@ class _TransactionScreenState extends State<TransactionScreen> {
               case TransactionDateFilter.threeWeeks:
                 label = 'Past 3 Wks';
                 iconData = Icons.timelapse;
-                break;
-              case TransactionDateFilter.oneMonth:
-                label = 'Last 30 Days';
-                iconData = Icons.calendar_view_month;
-                break;
-              case TransactionDateFilter.thisMonth:
-                label = 'This Month';
-                iconData = Icons.date_range;
                 break;
               case TransactionDateFilter.custom:
                 if (isSelected && _customRange != null) {
@@ -686,21 +686,21 @@ class _TransactionScreenState extends State<TransactionScreen> {
                       },
                     ),
                     _buildQuickActionChip(
-                      label: "Last 30 Days",
-                      onTap: () {
-                        Navigator.pop(ctx);
-                        setState(() {
-                          _selectedFilter = TransactionDateFilter.oneMonth;
-                          _customRange = null;
-                        });
-                      },
-                    ),
-                    _buildQuickActionChip(
                       label: "This Month",
                       onTap: () {
                         Navigator.pop(ctx);
                         setState(() {
                           _selectedFilter = TransactionDateFilter.thisMonth;
+                          _customRange = null;
+                        });
+                      },
+                    ),
+                    _buildQuickActionChip(
+                      label: "Last Month",
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        setState(() {
+                          _selectedFilter = TransactionDateFilter.lastMonth;
                           _customRange = null;
                         });
                       },
